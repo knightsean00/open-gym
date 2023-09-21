@@ -1,63 +1,11 @@
 import 'dart:collection';
 
-// main(List<String> arguments) {
-//   Workout workoutA = Workout("Bench Press", [
-//     WeightRep.fromLbs(135, 5),
-//     WeightRep.fromLbs(135, 5),
-//     WeightRep.fromLbs(135, 5),
-//     WeightRep.fromLbs(135, 5)
-//   ]);
-//   Workout workoutB = Workout("Incline Press", [
-//     WeightRep.fromLbs(65, 5),
-//     WeightRep.fromLbs(65, 5),
-//     WeightRep.fromLbs(65, 5)
-//   ]);
-//   Workout workoutC = Workout("Bench Press", [
-//     WeightRep.fromLbs(125, 5),
-//     WeightRep.fromLbs(135, 5),
-//     WeightRep.fromLbs(135, 5),
-//     WeightRep.fromLbs(135, 5)
-//   ]);
-
-//   print(!(workoutA == workoutB)); // A should not equal B
-//   print(workoutA == workoutC); // A should equal C
-
-//   Day dayA = Day([workoutA]);
-//   Day dayB = Day([workoutB]);
-//   Day dayC = Day([workoutA, workoutB]);
-//   Day dayD = Day([
-//     workoutC
-//   ]); //Currently this is determined to be the same day as Day A, but future version should use the same mutable object to prevent wrties to distinct Workout objects
-
-//   WorkoutPlan workoutPlan = WorkoutPlan("5x5", [dayA, dayB, dayC, dayD]);
-
-//   for (Day day in workoutPlan.days) {
-//     print(day);
-//     print("\n");
-//   }
-//   print(workoutPlan.pattern());
-
-//   (workoutA.sets[0] as WeightRep).setLbs(125);
-
-//   for (Day day in workoutPlan.days) {
-//     print(day);
-//     print("\n");
-//   }
-// }
-
 class WorkoutPlan {
   List<Day> days = [];
   String name = "";
   int currentDay = -1; // -1 means that the Workout has not started
-  // should add current idx for the day that we're on
 
   WorkoutPlan(this.name, this.days, {this.currentDay = -1});
-
-  // WorkoutPlan.fromMap(
-  //     Map<String, dynamic> map, Map<String, Workout> idWorkoutMap) {
-  //   name = map["name"];
-  //   days = map["days"].map((day) => Day.fromMap(day, idWorkoutMap)).toList();
-  // }
 
   WorkoutPlan.fromMap(Map<String, dynamic> map) {
     name = map["name"];
@@ -92,15 +40,6 @@ class WorkoutPlan {
   @override
   int get hashCode => id.hashCode;
 
-  // Map<String, dynamic> getMap() {
-  //   return {
-  //     "type": "WorkoutPlan",
-  //     "_id": id,
-  //     "name": name,
-  //     "days": days.map((e) => e.getMap()).toList()
-  //   };
-  // }
-
   Map<String, dynamic> getMap() {
     return {
       "type": "WorkoutPlan",
@@ -113,12 +52,14 @@ class WorkoutPlan {
 }
 
 class Day {
+  String name = "";
   List<String> workoutIds = [];
   List<String> completedWorkoutIds = [];
 
-  Day(this.workoutIds, {this.completedWorkoutIds = const []});
+  Day(this.name, this.workoutIds, {this.completedWorkoutIds = const []});
 
   Day.fromMap(Map<String, dynamic> map) {
+    name = map["name"];
     workoutIds = map["workoutIds"];
     completedWorkoutIds = map["completedWorkoutIds"];
   }
@@ -151,62 +92,28 @@ class Day {
     return {
       "type": "Day",
       "_id": id,
+      "name": name,
       "workouts": workoutIds,
       "completedWorkoutIds": completedWorkoutIds,
     };
   }
 }
 
-// class Day {
-//   List<Workout> workouts = [];
-
-//   Day(this.workouts);
-
-//   Day.fromMap(Map<String, dynamic> map, Map<String, Workout> idWorkoutMap) {
-//     workouts = map["workouts"].map((e) => idWorkoutMap[e]).toList();
-//   }
-
-//   bool operator ==(Object other) {
-//     if (other is Day && other.workouts.length == workouts.length) {
-//       for (int i = 0; i < workouts.length; i++) {
-//         if (workouts[i] != other.workouts[i]) {
-//           return false;
-//         }
-//       }
-//       return true;
-//     }
-//     return false;
-//   }
-
-//   String get id {
-//     return "${workouts.map((e) => e.id).toList().join('-')}";
-//   }
-
-//   @override
-//   int get hashCode => id.hashCode;
-
-//   @override
-//   String toString() {
-//     return "${this.workouts.map((e) => e.toString()).toList().join('\n')}";
-//   }
-
-//   Map<String, dynamic> getMap() {
-//     return {
-//       "type": "Day",
-//       "_id": id,
-//       "workouts": workouts.map((e) => e.id).toList()
-//     };
-//   }
-// }
+Map<String, Function> progressionMapper = {"Manual": (x) => x};
 
 class Workout {
   String name = "";
   List<Rep> sets = [];
-  // type of progression;
+  List<Rep> lastSets = [];
+  String progressionType = "Manual";
 
-  Workout(String name, List<Rep> sets) {
+  Workout(String name, List<Rep> sets, String progressionType, {lastSets = const []}) {
     this.name = name;
     this.sets = sets;
+    this.lastSets = lastSets;
+
+    assert(progressionMapper.containsKey(progressionType));
+    this.progressionType = progressionType;
   }
 
   Workout.fromMap(Map<String, dynamic> map) {
@@ -220,19 +127,7 @@ class Workout {
 
     name = map["name"];
     sets = map["sets"].map((repMap) => repFromMap(repMap)).toList();
-
-    history = [];
-    for (var r = 0; r < map["repHistory"].length; r++) {
-      if (r >= history.length) {
-        history.add([]);
-      }
-      for (var c = 0; c < map["repHistory"][r].length; c++) {
-        history[r].add((map["repHistory"]));
-      }
-    }
-    history = map["history"]
-        .map((e) => e.map((repMap) => (repFromMap(repMap),)).toList())
-        .toList();
+    lastSets = map["lastSets"].map((repMap) => repFromMap(repMap)).toList();
   }
 
   @override
@@ -268,13 +163,7 @@ class Workout {
       "_id": id,
       "name": name,
       "sets": sets.map((e) => e.getMap()).toList(),
-      "repHistory": history
-          .map((e) => e.map((repTime) => repTime.$1.getMap()).toList())
-          .toList(),
-      "timeHistory": history
-          .map((e) =>
-              e.map((repTime) => repTime.$2.millisecondsSinceEpoch).toList())
-          .toList()
+      "lastSets": lastSets.map((e) => e.getMap()).toList()
     };
   }
 }
@@ -400,9 +289,7 @@ class DurationRep implements Rep {
 
   @override
   bool operator ==(Object other) {
-    if (other is DurationRep &&
-        other._seconds == _seconds &&
-        other._reps == _reps) {
+    if (other is DurationRep && other._seconds == _seconds && other._reps == _reps) {
       return true;
     }
     return false;
@@ -440,12 +327,7 @@ class DurationRep implements Rep {
 
   @override
   Map<String, dynamic> getMap() {
-    return {
-      "type": "DurationRep",
-      "_id": id,
-      "reps": _reps,
-      "seconds": _seconds
-    };
+    return {"type": "DurationRep", "_id": id, "reps": _reps, "seconds": _seconds};
   }
 }
 
